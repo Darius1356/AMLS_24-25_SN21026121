@@ -87,7 +87,7 @@ if task == "multi-label, binary-class":
     criterion = nn.BCEWithLogitsLoss()
 else:
     criterion = nn.CrossEntropyLoss()
-    
+
 # Stochastic Gradient Descent (SGD) with a learning rate (lr) and momentum.
 optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
 
@@ -107,6 +107,12 @@ for epoch in range(NUM_EPOCHS):
 
         # Zero gradients
         optimizer.zero_grad()
+
+        # Adjust targets for the selected loss function
+        if task == "multi-label, binary-class":
+            targets = targets.float()  # BCEWithLogitsLoss expects float
+        else:
+            targets = targets.squeeze().long() # CrossEntropyLoss expects 1D targets
 
         # Forward pass
         outputs = model(inputs)
@@ -140,25 +146,33 @@ def test(split):
             # Process predictions and labels based on the task
             if task == 'multi-label, binary-class':
                 targets = targets.float()  # Ensure targets are in float32
-                outputs = torch.sigmoid(outputs)  # Sigmoid for multi-label classification
             else:
-                targets = targets.long()  # Ensure targets are in long (for classification)
                 outputs = torch.softmax(outputs, dim=-1)  # Softmax for multi-class classification
+                targets = targets.long()  # Ensure targets are in long (for classification)
 
             # Append true labels and predictions
-            y_true.append(targets.cpu())
-            y_score.append(outputs.cpu())
+            y_true.append(targets.cpu().numpy())
+            y_score.append(outputs.cpu().numpy())
 
     # Concatenate all batches
-    y_true = torch.cat(y_true, dim=0).numpy()
-    y_score = torch.cat(y_score, dim=0).numpy()
+    y_true = np.concatenate(y_true, axis=0)
+    y_score = np.concatenate(y_score, axis=0)
     
     # Evaluate metrics
-    evaluator = Evaluator(data_flag, split)  # Ensure `data_flag` is defined elsewhere in your script
-    metrics = evaluator.evaluate(y_score, y_true)  # Ensure `evaluator.evaluate` is compatible with y_true and y_score
+    
+    from sklearn.metrics import roc_auc_score, accuracy_score
 
-    # Print results
-    print('%s  auc: %.3f  acc: %.3f' % (split, *metrics))
+    # For binary classification
+    if task == "multi-label, binary-class":
+        auc = roc_auc_score(y_true, y_score, average="macro")
+        accuracy = accuracy_score(y_true, (y_score > 0.5).astype(int))
+
+    # For multi-class classification
+    else:
+        auc = roc_auc_score(y_true, y_score, multi_class="ovr")
+        accuracy = accuracy_score(y_true, y_score.argmax(axis=1))
+
+    print(f"AUC: {auc:.3f}, Accuracy: {accuracy:.3f}")
 
 
 
