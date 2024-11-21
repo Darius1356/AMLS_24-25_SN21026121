@@ -2,6 +2,7 @@
 from tqdm import tqdm
 import numpy as np
 import torch
+import torchvision
 import matplotlib.pyplot as plt    
 import torch.nn as nn
 import torch.optim as optim
@@ -203,3 +204,15 @@ def test(split):
 print('==> Evaluating ...')
 test('train')
 test('test')
+
+# Determine balance of dataset
+# Access the labels in the training dataset
+labels = np.array(train_dataset.labels)
+# Count occurrences of each class
+unique_classes, counts = np.unique(labels, return_counts=True)
+# Display the class distribution
+for cls, count in zip(unique_classes, counts):
+    print(f"Class {cls}: {count} samples")
+# Check the ratio of class distribution
+class_ratios = counts / counts.sum()
+print(f"Class ratios: {class_ratios}")
