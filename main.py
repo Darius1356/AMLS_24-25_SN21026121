@@ -8,6 +8,8 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.utils.data as data
 import torchvision.transforms as transforms
+from torchvision.models import resnet18
+
 
 import medmnist
 # INFO: Metadata about the MedMNIST dataset, e.g., task type and number of classes.
@@ -64,6 +66,7 @@ image = train_dataset.montage(length=20)  # Generate the montage
 plt.imshow(image)                        # Display the image
 plt.axis('off')                          # Optional: Turn off axes
 plt.show()                               # Display the image
+print(n_channels)
 """
 
 # define a simple CNN model
