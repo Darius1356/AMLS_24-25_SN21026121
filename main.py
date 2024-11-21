@@ -34,6 +34,8 @@ DataClass = getattr(medmnist, info['python_class'])
 # preprocessing
 # Converts images to PyTorch tensors (ToTensor) and normalises pixel values to the range [-1, 1] (Normalize).
 data_transform = transforms.Compose([
+    transforms.RandomHorizontalFlip(),  # Flip images horizontally
+    transforms.RandomRotation(15),     # Rotate images randomly
     transforms.ToTensor(),
     transforms.Normalize(mean=[.5], std=[.5])
 ])
