@@ -36,6 +36,7 @@ DataClass = getattr(medmnist, info['python_class'])
 data_transform = transforms.Compose([
     transforms.RandomHorizontalFlip(),  # Flip images horizontally
     transforms.RandomRotation(15),     # Rotate images randomly
+    transforms.RandomResizedCrop(28),  # Crop images randomly
     transforms.ToTensor(),
     transforms.Normalize(mean=[.5], std=[.5])
 ])
