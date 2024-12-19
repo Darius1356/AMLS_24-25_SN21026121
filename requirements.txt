@@ -7,3 +7,5 @@ Pillow
 fire
 torch
 torchvision
+medmnist
+matplotlib
