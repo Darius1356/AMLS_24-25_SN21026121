@@ -6,7 +6,6 @@ import torchvision
 import matplotlib.pyplot as plt    
 import torch.nn as nn
 import torch.optim as optim
-import torch.nn.functional as F
 import torch.utils.data as data
 import torchvision.transforms as transforms
 from torchvision.models import resnet18
@@ -38,11 +37,15 @@ DataClass = getattr(medmnist, info['python_class'])
 # preprocessing
 # Converts images to PyTorch tensors (ToTensor) and normalises pixel values to the range [-1, 1] (Normalize).
 data_transform = transforms.Compose([
-    transforms.RandomHorizontalFlip(),  # Flip images horizontally
-    transforms.RandomRotation(15),     # Rotate images randomly
-    transforms.RandomResizedCrop(28),  # Crop images randomly
+    transforms.RandomHorizontalFlip(p=0.5),  # Flip images horizontally with 50% probability
+    transforms.RandomVerticalFlip(p=0.2),    # Flip images vertically with 20% probability
+    transforms.RandomRotation(degrees=20),   # Rotate images randomly within a range of ±20 degrees
+    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),  # Adjust brightness, contrast, etc.
+    transforms.RandomResizedCrop(size=28, scale=(0.8, 1.0), ratio=(0.9, 1.1)),  # Randomly crop and resize
+    transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),  # Random translation
+    transforms.RandomGrayscale(p=0.1),        # Convert to grayscale with a small probability
     transforms.ToTensor(),
-    transforms.Normalize(mean=[.5], std=[.5])
+    transforms.Normalize(mean=[0.5], std=[0.5])  # Normalize pixel values to [-1, 1]
 ])
 
 # load the data
@@ -57,27 +60,46 @@ train_loader = data.DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, shu
 train_loader_at_eval = data.DataLoader(dataset=train_dataset, batch_size=2*BATCH_SIZE, shuffle=False)
 test_loader = data.DataLoader(dataset=test_dataset, batch_size=2*BATCH_SIZE, shuffle=False)
 
-class CNN(nn.Module):
-    def __init__(self):
-        super(CNN, self).__init__()
-        # Define the layers
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=32, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1)
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.fc1 = nn.Linear(64 * 7 * 7, 128)  # Adjust based on input size
-        self.fc2 = nn.Linear(128, 1)  # For binary classification
 
+# define a simple CNN model
+#   Conv2d: Applies convolutional filters to extract spatial features.
+#   BatchNorm2d: Normalises layer outputs to stabilise training.
+#   ReLU: Introduces non-linearity.
+class EnhancedNet(nn.Module):
+    def __init__(self, in_channels, num_classes):
+        super(EnhancedNet, self).__init__()
+        
+        self.features = nn.Sequential(
+            nn.Conv2d(in_channels, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.Conv2d(128, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2)
+        )
+        
+        self.gap = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Sequential(
+            nn.Dropout(0.5),
+            nn.Linear(128, num_classes)
+        )
+    
     def forward(self, x):
-        # Convolutional + ReLU + Pooling layers
-        x = self.pool(F.relu(self.conv1(x)))  # [Batch, 32, 14, 14]
-        x = self.pool(F.relu(self.conv2(x)))  # [Batch, 64, 7, 7]
-        x = x.view(-1, 64 * 7 * 7)  # Flatten: [Batch, 64*7*7]
-        x = F.relu(self.fc1(x))  # Fully connected layer
-        x = torch.sigmoid(self.fc2(x))  # Sigmoid for binary classification
+        x = self.features(x)
+        x = self.gap(x)
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
         return x
 
-
-model = CNN()
+model = EnhancedNet(in_channels=n_channels, num_classes=n_classes)
     
 # define loss function and optimizer
 #   BCEWithLogitsLoss: For multi-label binary classification.
@@ -122,7 +144,6 @@ for epoch in range(NUM_EPOCHS):
         optimizer.step()
 
 # evaluation
-
 def test(split):
     model.eval()
     y_true = torch.tensor([])
