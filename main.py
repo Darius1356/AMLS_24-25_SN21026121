@@ -37,11 +37,15 @@ DataClass = getattr(medmnist, info['python_class'])
 # preprocessing
 # Converts images to PyTorch tensors (ToTensor) and normalises pixel values to the range [-1, 1] (Normalize).
 data_transform = transforms.Compose([
-    transforms.RandomHorizontalFlip(),  # Flip images horizontally
-    transforms.RandomRotation(15),     # Rotate images randomly
-    transforms.RandomResizedCrop(28),  # Crop images randomly
+    transforms.RandomHorizontalFlip(p=0.5),  # Flip images horizontally with 50% probability
+    transforms.RandomVerticalFlip(p=0.2),    # Flip images vertically with 20% probability
+    transforms.RandomRotation(degrees=20),   # Rotate images randomly within a range of ±20 degrees
+    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),  # Adjust brightness, contrast, etc.
+    transforms.RandomResizedCrop(size=28, scale=(0.8, 1.0), ratio=(0.9, 1.1)),  # Randomly crop and resize
+    transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),  # Random translation
+    transforms.RandomGrayscale(p=0.1),        # Convert to grayscale with a small probability
     transforms.ToTensor(),
-    transforms.Normalize(mean=[.5], std=[.5])
+    transforms.Normalize(mean=[0.5], std=[0.5])  # Normalize pixel values to [-1, 1]
 ])
 
 # load the data
@@ -56,74 +60,46 @@ train_loader = data.DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, shu
 train_loader_at_eval = data.DataLoader(dataset=train_dataset, batch_size=2*BATCH_SIZE, shuffle=False)
 test_loader = data.DataLoader(dataset=test_dataset, batch_size=2*BATCH_SIZE, shuffle=False)
 
-# visualisation
-"""
-print(train_dataset)
-print("===================")
-print(test_dataset)
-
-image = train_dataset.montage(length=20)  # Generate the montage
-plt.imshow(image)                        # Display the image
-plt.axis('off')                          # Optional: Turn off axes
-plt.show()                               # Display the image
-print(n_channels)
-"""
 
 # define a simple CNN model
 #   Conv2d: Applies convolutional filters to extract spatial features.
 #   BatchNorm2d: Normalises layer outputs to stabilise training.
 #   ReLU: Introduces non-linearity.
-class Net(nn.Module):
+class EnhancedNet(nn.Module):
     def __init__(self, in_channels, num_classes):
-        super(Net, self).__init__()
-
-        self.layer1 = nn.Sequential(
-            nn.Conv2d(in_channels, 16, kernel_size=3),
-            nn.BatchNorm2d(16),
-            nn.ReLU())
-
-        self.layer2 = nn.Sequential(
-            nn.Conv2d(16, 16, kernel_size=3),
-            nn.BatchNorm2d(16),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2))
-
-        self.layer3 = nn.Sequential(
-            nn.Conv2d(16, 64, kernel_size=3),
-            nn.BatchNorm2d(64),
-            nn.ReLU())
+        super(EnhancedNet, self).__init__()
         
-        self.layer4 = nn.Sequential(
-            nn.Conv2d(64, 64, kernel_size=3),
-            nn.BatchNorm2d(64),
-            nn.ReLU())
-
-        self.layer5 = nn.Sequential(
-            nn.Conv2d(64, 64, kernel_size=3, padding=1),
+        self.features = nn.Sequential(
+            nn.Conv2d(in_channels, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2, stride=2))
+            nn.MaxPool2d(2, 2),
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.Conv2d(128, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2)
+        )
         
-# Fully-Connected Layers: Maps the final feature map into predictions for each class.
+        self.gap = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Sequential(
-            nn.Linear(64 * 4 * 4, 128),
-            nn.ReLU(),
-            nn.Linear(128, 128),
-            nn.ReLU(),
-            nn.Linear(128, num_classes))
-
-# Forware Pass: Defines how input data flows through layers
+            nn.Dropout(0.5),
+            nn.Linear(128, num_classes)
+        )
+    
     def forward(self, x):
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-        x = self.layer5(x)
+        x = self.features(x)
+        x = self.gap(x)
         x = x.view(x.size(0), -1)
         x = self.fc(x)
         return x
 
-model = Net(in_channels=n_channels, num_classes=n_classes)
+model = EnhancedNet(in_channels=n_channels, num_classes=n_classes)
     
 # define loss function and optimizer
 #   BCEWithLogitsLoss: For multi-label binary classification.
@@ -168,7 +144,6 @@ for epoch in range(NUM_EPOCHS):
         optimizer.step()
 
 # evaluation
-
 def test(split):
     model.eval()
     y_true = torch.tensor([])
