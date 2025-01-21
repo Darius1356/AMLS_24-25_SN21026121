@@ -9,6 +9,7 @@ import torch.optim as optim
 import torch.utils.data as data
 import torchvision.transforms as transforms
 from torchvision.models import resnet18
+import math
 
 
 import medmnist
@@ -21,9 +22,9 @@ from medmnist import INFO, Evaluator
 data_flag = 'breastmnist'
 download = True
 
-NUM_EPOCHS = 3
+NUM_EPOCHS = 4
 BATCH_SIZE = 128
-lr = 0.001
+lr = 0.006
 
 # info: Retrieves dataset-specific information, such as the type of task (binary-class) and the number of channels (n_channels = 1 for grayscale images).
 info = INFO[data_flag]
@@ -59,7 +60,6 @@ pil_dataset = DataClass(split='train', download=download)
 train_loader = data.DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, shuffle=True)
 train_loader_at_eval = data.DataLoader(dataset=train_dataset, batch_size=2*BATCH_SIZE, shuffle=False)
 test_loader = data.DataLoader(dataset=test_dataset, batch_size=2*BATCH_SIZE, shuffle=False)
-
 
 # define a simple CNN model
 #   Conv2d: Applies convolutional filters to extract spatial features.
@@ -104,16 +104,12 @@ model = EnhancedNet(in_channels=n_channels, num_classes=n_classes)
 # define loss function and optimizer
 #   BCEWithLogitsLoss: For multi-label binary classification.
 #   CrossEntropyLoss: For multi-class classification.
-if task == "multi-label, binary-class":
-    criterion = nn.BCEWithLogitsLoss()
-else:
-    criterion = nn.CrossEntropyLoss()
+criterion = nn.CrossEntropyLoss()
     
 # Stochastic Gradient Descent (SGD) with a learning rate (lr) and momentum.
 optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
 
 # train
-
 #   Backward pass (loss.backward()).
 #   Update weights (optimizer.step()).
 for epoch in range(NUM_EPOCHS):
@@ -131,15 +127,12 @@ for epoch in range(NUM_EPOCHS):
         outputs = model(inputs)
 
         # Compute loss
-        if task == 'multi-label, binary-class':
-            targets = targets.to(torch.float32)
-            loss = criterion(outputs, targets)
-        else:
-            targets = targets.squeeze().long()
-            loss = criterion(outputs, targets)
+        targets = targets.squeeze().long()
+        loss = criterion(outputs, targets)
         
         # Backwards pass
         loss.backward()
+
         # Update weights
         optimizer.step()
 
@@ -156,13 +149,9 @@ def test(split):
             outputs = model(inputs)
 
             # Computes prediction using softmax
-            if task == 'multi-label, binary-class':
-                targets = targets.to(torch.float32)
-                outputs = outputs.softmax(dim=-1)
-            else:
-                targets = targets.squeeze().long()
-                outputs = outputs.softmax(dim=-1)
-                targets = targets.float().resize_(len(targets), 1)
+            targets = targets.squeeze().long()
+            outputs = outputs.softmax(dim=-1)
+            targets = targets.float().resize_(len(targets), 1)
 
             # Appends true labels and predictions to y_true and y_score
             y_true = torch.cat((y_true, targets), 0)
