@@ -23,7 +23,7 @@ data_flag = 'breastmnist'
 download = True
 
 NUM_EPOCHS = 4
-BATCH_SIZE = 128
+BATCH_SIZE = 64
 lr = 0.006
 
 # info: Retrieves dataset-specific information, such as the type of task (binary-class) and the number of channels (n_channels = 1 for grayscale images).
@@ -41,12 +41,7 @@ data_transform = transforms.Compose([
     transforms.RandomHorizontalFlip(p=0.5),  # Flip images horizontally with 50% probability
     transforms.RandomVerticalFlip(p=0.2),    # Flip images vertically with 20% probability
     transforms.RandomRotation(degrees=20),   # Rotate images randomly within a range of ±20 degrees
-    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),  # Adjust brightness, contrast, etc.
-    transforms.RandomResizedCrop(size=28, scale=(0.8, 1.0), ratio=(0.9, 1.1)),  # Randomly crop and resize
-    transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),  # Random translation
-    transforms.RandomGrayscale(p=0.1),        # Convert to grayscale with a small probability
     transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5], std=[0.5])  # Normalize pixel values to [-1, 1]
 ])
 
 # load the data
@@ -70,31 +65,50 @@ class EnhancedNet(nn.Module):
         super(EnhancedNet, self).__init__()
         
         self.features = nn.Sequential(
-            nn.Conv2d(in_channels, 32, kernel_size=3, padding=1),
+            nn.Conv2d(in_channels, 16, kernel_size=3, padding=1),
+            nn.BatchNorm2d(16),
+            nn.ReLU(),
+            nn.MaxPool2d(2, 2),  # Output: (16, 14, 14)
+            nn.Dropout(0.2),
+            
+            nn.Conv2d(16, 32, kernel_size=3, padding=1),
             nn.BatchNorm2d(32),
             nn.ReLU(),
+            nn.MaxPool2d(2, 2),  # Output: (32, 7, 7)
+            nn.Dropout(0.25),
+            
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
             nn.ReLU(),
-            nn.MaxPool2d(2, 2),
+            nn.MaxPool2d(2, 2),  # Output: (64, 3, 3)
+            nn.Dropout(0.3),
+            
             nn.Conv2d(64, 128, kernel_size=3, padding=1),
             nn.BatchNorm2d(128),
             nn.ReLU(),
-            nn.Conv2d(128, 128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),
+            nn.Dropout(0.3),
+            
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
             nn.ReLU(),
-            nn.MaxPool2d(2, 2)
+            nn.Dropout(0.3),
+
+            nn.Conv2d(256, 512, kernel_size=3, padding=1),  # Final layer with 512 filters
+            nn.BatchNorm2d(512),
+            nn.ReLU(),
+            nn.Dropout(0.4),
         )
-        
-        self.gap = nn.AdaptiveAvgPool2d(1)
+
         self.fc = nn.Sequential(
-            nn.Dropout(0.5),
-            nn.Linear(128, num_classes)
+            nn.Linear(512*3*3, 512),
+            nn.ReLU(),
+            nn.Dropout(0.4),
+            nn.Linear(512, num_classes),
+            nn.Sigmoid(),
         )
     
     def forward(self, x):
         x = self.features(x)
-        x = self.gap(x)
         x = x.view(x.size(0), -1)
         x = self.fc(x)
         return x
@@ -118,6 +132,9 @@ for epoch in range(NUM_EPOCHS):
     test_correct = 0
     test_total = 0
     
+    max_norm = 1.0  # Define the maximum gradient norm for clipping
+
+
     model.train()
     for inputs, targets in tqdm(train_loader):
         # forward + backward + optimize
@@ -132,6 +149,9 @@ for epoch in range(NUM_EPOCHS):
         
         # Backwards pass
         loss.backward()
+
+        # Gradient clipping
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
 
         # Update weights
         optimizer.step()
