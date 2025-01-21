@@ -1,209 +1,168 @@
-# Import standard libraries for deep learning (torch), image processing (torchvision), and medical datasets (medmnist).
-from tqdm import tqdm
+import os
 import numpy as np
-import torch
-import torchvision
-import matplotlib.pyplot as plt    
-import torch.nn as nn
-import torch.optim as optim
-import torch.utils.data as data
-import torchvision.transforms as transforms
-from torchvision.models import resnet18
-import math
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+from sklearn.svm import SVC
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import GridSearchCV, learning_curve
+from sklearn.metrics import (confusion_matrix, ConfusionMatrixDisplay, roc_curve,
+                             precision_recall_curve, accuracy_score, roc_auc_score)
+import matplotlib.pyplot as plt
+
+from imblearn.over_sampling import SMOTE
+from imblearn.pipeline import Pipeline
 
 
-import medmnist
-# INFO: Metadata about the MedMNIST dataset, e.g., task type and number of classes.
-# Evaluator: Calculates metrics like AUC and accuracy.
-from medmnist import INFO, Evaluator
+# Suppress TensorFlow logs
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+tf.random.set_seed(42)
 
-def cyclical_lr(stepsize, min_lr=0.0005, max_lr=0.009):
+# ---------------------------
+# Load and Preprocess Dataset
+# ---------------------------
+data_dir = r'C:\Users\dariu\Documents\1. UCL\4th Year\Applied Machine Learning Systems I\AMLS_24-25_SN21026121\Datasets\breastmnist.npz'
+data = np.load(data_dir)
 
-    # Scaler: we can adapt this if we do not want the triangular CLR
-    scaler = lambda x: 1.
+x_train, y_train = data['train_images'], data['train_labels']
+x_val, y_val = data['val_images'], data['val_labels']
+x_test, y_test = data['test_images'], data['test_labels']
 
-    # Lambda function to calculate the LR
-    lr_lambda = lambda it: min_lr + (max_lr - min_lr) * relative(it, stepsize)
+# Normalize and add channel dimension
+x_train, x_val, x_test = [np.expand_dims(arr.astype('float32') / 255.0, axis=-1)
+                          for arr in (x_train, x_val, x_test)]
 
-    # Additional function to see where on the cycle we are
-    def relative(it, stepsize):
-        cycle = math.floor(1 + it / (2 * stepsize))
-        x = abs(it / stepsize - 2 * cycle + 1)
-        return max(0, (1 - x)) * scaler(cycle)
+y_train, y_val, y_test = [arr.ravel() for arr in (y_train, y_val, y_test)]
 
-    return lr_lambda
+# --------------------------
+# Data Augmentation Pipeline
+# --------------------------
+data_augmentation = keras.Sequential([
+    layers.RandomFlip("horizontal"),
+    layers.RandomRotation(0.1),
+    layers.RandomZoom(0.1),
+    layers.RandomContrast(0.1)
+], name="data_augmentation")
 
-# First work on 2D dataset
-# data_flag: Selects the BreastMNIST dataset.
-data_flag = 'breastmnist'
-download = True
+# ---------------------------
+# Build CNN Model
+# ---------------------------
+def build_cnn():
+    inputs = keras.Input(shape=(28, 28, 1))
+    x = data_augmentation(inputs)
 
-NUM_EPOCHS = 4
-BATCH_SIZE = 128
+    # Layer 1
+    x = layers.Conv2D(32, 3, activation='relu')(x)
+    x = layers.MaxPooling2D()(x)
+    x = layers.Dropout(0.1)(x)
 
-# info: Retrieves dataset-specific information, such as the type of task (binary-class) and the number of channels (n_channels = 1 for grayscale images).
-info = INFO[data_flag]
-task = info['task']
-n_channels = info['n_channels']
-n_classes = len(info['label'])
+    # Layer 2
+    x = layers.Conv2D(64, 3, activation='relu')(x)
+    x = layers.MaxPooling2D()(x)
+    x = layers.Dropout(0.3)(x)
 
-DataClass = getattr(medmnist, info['python_class'])
+    # Fully Convolutional Layer
+    x = layers.Flatten()(x)
+    x = layers.Dense(128, activation='relu')(x)
+    x = layers.Dropout(0.4)(x)
+    outputs = layers.Dense(1, activation='sigmoid')(x)
 
-# First, we read the MedMNIST data, preprocess them and encapsulate them into dataloader form.
-# preprocessing
-# Converts images to PyTorch tensors (ToTensor) and normalises pixel values to the range [-1, 1] (Normalize).
-data_transform = transforms.Compose([
-    transforms.RandomHorizontalFlip(p=0.5),  # Flip images horizontally with 50% probability
-    transforms.RandomVerticalFlip(p=0.2),    # Flip images vertically with 20% probability
-    transforms.RandomRotation(degrees=20),   # Rotate images randomly within a range of ±20 degrees
-    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),  # Adjust brightness, contrast, etc.
-    transforms.RandomResizedCrop(size=28, scale=(0.8, 1.0), ratio=(0.9, 1.1)),  # Randomly crop and resize
-    transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),  # Random translation
-    transforms.RandomGrayscale(p=0.1),        # Convert to grayscale with a small probability
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.5], std=[0.5])  # Normalize pixel values to [-1, 1]
+    model = keras.Model(inputs, outputs)
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    return model
+
+cnn_model = build_cnn()
+
+# ---------------------------
+# Train CNN Model with Early Stopping
+# ---------------------------
+early_stopping = keras.callbacks.EarlyStopping(
+    monitor='val_loss', patience=5, restore_best_weights=True
+)
+
+history = cnn_model.fit(
+    x_train, y_train,
+    validation_data=(x_val, y_val),
+    epochs=50,
+    batch_size=128,
+    callbacks=[early_stopping]
+)
+
+# ---------------------------
+# Feature Extraction for SVM
+# ---------------------------
+feature_extractor = keras.Model(inputs=cnn_model.input, outputs=cnn_model.layers[-2].output)
+train_features, val_features, test_features = [
+    feature_extractor.predict(dataset)
+    for dataset in (x_train, x_val, x_test)
+]
+
+scaler = StandardScaler()
+train_features = scaler.fit_transform(train_features)
+val_features = scaler.transform(val_features)
+test_features = scaler.transform(test_features)
+
+# ---------------------------
+# Train and Evaluate SVM
+# ---------------------------
+def evaluate_svm(svm_model, X_test, y_test):
+    y_pred = svm_model.predict(X_test)
+    y_prob = svm_model.predict_proba(X_test)[:, 1]
+
+    # Confusion Matrix
+    ConfusionMatrixDisplay.from_predictions(y_test, y_pred, display_labels=["Benign", "Malignant"], cmap="Blues")
+    plt.title("Confusion Matrix")
+    plt.show()
+
+    # ROC Curve
+    fpr, tpr, _ = roc_curve(y_test, y_prob)
+    plt.plot(fpr, tpr, label=f"AUC = {roc_auc_score(y_test, y_prob):.2f}")
+    plt.plot([0, 1], [0, 1], 'k--')
+    plt.title("ROC Curve")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.legend()
+    plt.grid()
+    plt.show()
+
+    # Precision-Recall Curve
+    precision, recall, _ = precision_recall_curve(y_test, y_prob)
+    plt.plot(recall, precision)
+    plt.title("Precision-Recall Curve")
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.grid()
+    plt.show()
+
+    # Calculate and print AUC and ACC
+    accuracy = accuracy_score(y_test, y_pred)
+    auc = roc_auc_score(y_test, y_prob)
+    print(f"Accuracy (ACC): {accuracy:.4f}")
+    print(f"Area Under the Curve (AUC): {auc:.4f}")
+
+param_grid = {
+    'svm__C': [0.1, 1, 10],
+    'svm__kernel': ['linear', 'rbf'],
+    'svm__gamma': ['scale', 'auto'],
+    'svm__class_weight': [None, 'balanced']  
+}
+
+pipeline = Pipeline([
+    ('smote', SMOTE(random_state=42)),  # SMOTE for oversampling
+    ('svm', SVC(probability=True))      # SVM as the classifier
 ])
 
-# load the data
-train_dataset = DataClass(split='train', transform=data_transform, download=download)
-test_dataset = DataClass(split='test', transform=data_transform, download=download)
+svm = SVC(probability=True)
+grid_search = GridSearchCV(
+    pipeline,
+    param_grid,
+    cv=3,
+    scoring='accuracy',
+    verbose=2,
+    n_jobs=-1
+)
 
-pil_dataset = DataClass(split='train', download=download)
+grid_search.fit(train_features, y_train)
 
-# encapsulate data into dataloader form
-# Wraps the datasets into DataLoader objects for batching and shuffling.
-train_loader = data.DataLoader(dataset=train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-train_loader_at_eval = data.DataLoader(dataset=train_dataset, batch_size=2*BATCH_SIZE, shuffle=False)
-test_loader = data.DataLoader(dataset=test_dataset, batch_size=2*BATCH_SIZE, shuffle=False)
-
-step_size = 4*len(train_loader)
-clr = cyclical_lr(step_size, min_lr=0.0005, max_lr=0.009)
-
-
-# define a simple CNN model
-#   Conv2d: Applies convolutional filters to extract spatial features.
-#   BatchNorm2d: Normalises layer outputs to stabilise training.
-#   ReLU: Introduces non-linearity.
-class EnhancedNet(nn.Module):
-    def __init__(self, in_channels, num_classes):
-        super(EnhancedNet, self).__init__()
-        
-        self.features = nn.Sequential(
-            nn.Conv2d(in_channels, 32, kernel_size=3, padding=1),
-            nn.BatchNorm2d(32),
-            nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2),
-            nn.Conv2d(64, 128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.Conv2d(128, 128, kernel_size=3, padding=1),
-            nn.BatchNorm2d(128),
-            nn.ReLU(),
-            nn.MaxPool2d(2, 2)
-        )
-        
-        self.gap = nn.AdaptiveAvgPool2d(1)
-        self.fc = nn.Sequential(
-            nn.Dropout(0.5),
-            nn.Linear(128, num_classes)
-        )
-    
-    def forward(self, x):
-        x = self.features(x)
-        x = self.gap(x)
-        x = x.view(x.size(0), -1)
-        x = self.fc(x)
-        return x
-
-model = EnhancedNet(in_channels=n_channels, num_classes=n_classes)
-    
-# define loss function and optimizer
-#   BCEWithLogitsLoss: For multi-label binary classification.
-#   CrossEntropyLoss: For multi-class classification.
-criterion = nn.CrossEntropyLoss()
-    
-# Stochastic Gradient Descent (SGD) with a learning rate (lr) and momentum.
-optimizer = optim.SGD(model.parameters(), lr=0.1, momentum=0.9)
-
-scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, [clr])
-
-
-# train
-#   Backward pass (loss.backward()).
-#   Update weights (optimizer.step()).
-for epoch in range(NUM_EPOCHS):
-    train_correct = 0
-    train_total = 0
-    test_correct = 0
-    test_total = 0
-    
-    model.train()
-    for inputs, targets in tqdm(train_loader):
-        # forward + backward + optimize
-        # Zero gradients
-        optimizer.zero_grad()
-        # Forward pass
-        outputs = model(inputs)
-
-        # Compute loss
-        targets = targets.squeeze().long()
-        loss = criterion(outputs, targets)
-        
-        # Backwards pass
-        loss.backward()
-
-        scheduler.step()
-
-        # Update weights
-        optimizer.step()
-
-# evaluation
-def test(split):
-    model.eval()
-    y_true = torch.tensor([])
-    y_score = torch.tensor([])
-    
-    data_loader = train_loader_at_eval if split == 'train' else test_loader
-
-    with torch.no_grad():
-        for inputs, targets in data_loader:
-            outputs = model(inputs)
-
-            # Computes prediction using softmax
-            targets = targets.squeeze().long()
-            outputs = outputs.softmax(dim=-1)
-            targets = targets.float().resize_(len(targets), 1)
-
-            # Appends true labels and predictions to y_true and y_score
-            y_true = torch.cat((y_true, targets), 0)
-            y_score = torch.cat((y_score, outputs), 0)
-
-        y_true = y_true.numpy()
-        y_score = y_score.detach().numpy()
-        
-        # Evaluator calculates AUC and accuracy for the given split (train/test).
-        evaluator = Evaluator(data_flag, split)
-        metrics = evaluator.evaluate(y_score)
-    
-        print('%s  auc: %.3f  acc:%.3f' % (split, *metrics))
-
-
-# Run Evaluation: The results show metrics for the training and test datasets.
-print('==> Evaluating ...')
-test('train')
-test('test')
-
-# Determine balance of dataset
-# Access the labels in the training dataset
-labels = np.array(train_dataset.labels)
-# Count occurrences of each class
-unique_classes, counts = np.unique(labels, return_counts=True)
-# Display the class distribution
-for cls, count in zip(unique_classes, counts):
-    print(f"Class {cls}: {count} samples")
-# Check the ratio of class distribution
-class_ratios = counts / counts.sum()
-print(f"Class ratios: {class_ratios}")
+best_svm = grid_search.best_estimator_
+evaluate_svm(best_svm, test_features, y_test)

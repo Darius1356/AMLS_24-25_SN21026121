@@ -9,3 +9,5 @@ torch
 torchvision
 medmnist
 matplotlib
+tensorflow
+imblearn

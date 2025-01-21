@@ -22,7 +22,7 @@ from medmnist import INFO, Evaluator
 data_flag = 'breastmnist'
 download = True
 
-NUM_EPOCHS = 4
+NUM_EPOCHS = 20
 BATCH_SIZE = 64
 lr = 0.006
 
