@@ -54,17 +54,17 @@ def build_cnn():
     # Layer 1
     x = layers.Conv2D(32, 3, activation='relu')(x)
     x = layers.MaxPooling2D()(x)
-    x = layers.Dropout(0.1)(x)
+    x = layers.Dropout(0.09041545937192769)(x)
 
     # Layer 2
     x = layers.Conv2D(64, 3, activation='relu')(x)
     x = layers.MaxPooling2D()(x)
-    x = layers.Dropout(0.3)(x)
+    x = layers.Dropout(0.30541401607988583)(x)
 
     # Fully Convolutional Layer
     x = layers.Flatten()(x)
     x = layers.Dense(128, activation='relu')(x)
-    x = layers.Dropout(0.4)(x)
+    x = layers.Dropout(0.23425114121921314)(x)
     outputs = layers.Dense(1, activation='sigmoid')(x)
 
     model = keras.Model(inputs, outputs)
