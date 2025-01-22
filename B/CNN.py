@@ -10,6 +10,7 @@ import torch.utils.data as data
 import torchvision.transforms as transforms
 from torchvision.models import resnet18
 import math
+import os
 
 import medmnist
 # INFO: Metadata about the MedMNIST dataset, e.g., task type and number of classes.
@@ -99,6 +100,10 @@ criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
 
 # Training and evaluation loop
+training_loss = []
+validation_loss = []
+epochs = list(range(1, NUM_EPOCHS + 1))
+
 for epoch in range(NUM_EPOCHS):
     model.train()
     train_loss = 0.0
@@ -119,6 +124,19 @@ for epoch in range(NUM_EPOCHS):
         correct += predicted.eq(targets).sum().item()
 
     train_acc = 100. * correct / total
+    training_loss.append(train_loss / len(train_loader))
+    
+    # Evaluate on validation set
+    model.eval()
+    val_loss = 0.0
+    with torch.no_grad():
+        for inputs, targets in val_loader:
+            outputs = model(inputs)
+            targets = targets.squeeze().long()
+            loss = criterion(outputs, targets)
+            val_loss += loss.item()
+    validation_loss.append(val_loss / len(val_loader))
+
     print(f"Epoch {epoch+1}/{NUM_EPOCHS}, Loss: {train_loss:.4f}, Accuracy: {train_acc:.2f}%")
 
 # Evaluation function
@@ -148,3 +166,48 @@ for cls, count in zip(unique_classes, counts):
     print(f"Class {cls}: {count} samples")
 class_ratios = counts / counts.sum()
 print(f"Class ratios: {class_ratios}")
+
+# Save metrics and graphs
+output_dir = r"C:\\Users\\dariu\\Documents\\1. UCL\\4th Year\\Applied Machine Learning Systems I\\AMLS_24-25_SN21026121\\B"
+os.makedirs(output_dir, exist_ok=True)
+
+# Save metrics to a text file
+metrics_path = os.path.join(output_dir, "metrics.txt")
+with open(metrics_path, "w") as f:
+    f.write(f"Validation Accuracy: {val_acc:.2f}%\n")
+    f.write(f"Test Accuracy: {test_acc:.2f}%\n")
+    f.write("Class Distribution in Training Dataset:\n")
+    for cls, count in zip(unique_classes, counts):
+        f.write(f"Class {cls}: {count} samples\n")
+    f.write("Class Ratios:\n")
+    for cls, ratio in zip(unique_classes, class_ratios):
+        f.write(f"Class {cls}: {ratio:.4f}\n")
+
+print(f"Metrics saved to {metrics_path}")
+
+# Save the loss curve graph
+loss_curve_path = os.path.join(output_dir, "loss_curve.png")
+plt.figure(figsize=(8, 6))
+plt.plot(epochs, training_loss, label="Training Loss", marker="o")
+plt.plot(epochs, validation_loss, label="Validation Loss", marker="s")
+plt.title("Training vs Validation Loss Curve", fontsize=14)
+plt.xlabel("Epochs", fontsize=12)
+plt.ylabel("Loss", fontsize=12)
+plt.legend(fontsize=12)
+plt.grid(alpha=0.3)
+plt.tight_layout()
+plt.savefig(loss_curve_path)
+plt.close()
+print(f"Loss curve saved to {loss_curve_path}")
+
+# Save the class distribution bar chart
+class_distribution_path = os.path.join(output_dir, "class_distribution.png")
+plt.figure(figsize=(8, 6))
+plt.bar(unique_classes, counts, tick_label=[f"Class {cls}" for cls in unique_classes])
+plt.title("Class Distribution in Training Dataset", fontsize=14)
+plt.xlabel("Class", fontsize=12)
+plt.ylabel("Count", fontsize=12)
+plt.tight_layout()
+plt.savefig(class_distribution_path)
+plt.close()
+print(f"Class distribution chart saved to {class_distribution_path}")

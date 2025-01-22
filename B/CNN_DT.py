@@ -1,3 +1,8 @@
+from sklearn.metrics import f1_score, classification_report, confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+import os
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import accuracy_score, roc_auc_score
 from sklearn.preprocessing import StandardScaler
@@ -119,8 +124,6 @@ print(f"Validation Accuracy: {val_acc:.2f}%")
 print(f"Test Accuracy: {test_acc:.2f}%")
 
 # Feature extraction for decision tree
-from sklearn.tree import DecisionTreeClassifier
-
 def extract_features(model, loader):
     model.eval()
     features = []
@@ -169,3 +172,56 @@ if len(np.unique(train_labels)) == 2:
 
     print(f"Validation AUC (Decision Tree): {val_auc:.4f}")
     print(f"Test AUC (Decision Tree): {test_auc:.4f}")
+
+# ---------------------------
+# Save Metrics, Confusion Matrix, and PCA Plot
+# ---------------------------
+output_dir = r'C:\Users\dariu\Documents\1. UCL\4th Year\Applied Machine Learning Systems I\AMLS_24-25_SN21026121\B'
+os.makedirs(output_dir, exist_ok=True)
+
+val_f1 = f1_score(val_labels, val_predictions, average='weighted')
+test_f1 = f1_score(test_labels, test_predictions, average='weighted')
+
+metrics_file = os.path.join(output_dir, 'decision_tree_metrics.txt')
+with open(metrics_file, 'w') as file:
+    file.write(f"Decision Tree Validation Accuracy: {val_accuracy:.4f}\n")
+    file.write(f"Decision Tree Test Accuracy: {test_accuracy:.4f}\n")
+    file.write(f"Decision Tree Validation F1 Score: {val_f1:.4f}\n")
+    file.write(f"Decision Tree Test F1 Score: {test_f1:.4f}\n")
+    file.write("\nClassification Report (Test):\n")
+    file.write(classification_report(test_labels, test_predictions))
+
+print(f"Metrics saved to {metrics_file}")
+
+# Confusion Matrix
+conf_matrix = confusion_matrix(test_labels, test_predictions)
+conf_matrix_file = os.path.join(output_dir, 'confusion_matrix.png')
+plt.figure(figsize=(8, 6))
+sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=np.unique(test_labels), yticklabels=np.unique(test_labels))
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+plt.savefig(conf_matrix_file)
+plt.close()
+print(f"Confusion matrix saved as '{conf_matrix_file}'")
+
+# PCA Plot
+pca = PCA(n_components=2)
+pca_features = pca.fit_transform(test_features)
+
+pca_plot_file = os.path.join(output_dir, 'pca_plot.png')
+plt.figure(figsize=(10, 8))
+for label in np.unique(test_labels):
+    plt.scatter(
+        pca_features[test_labels == label, 0],
+        pca_features[test_labels == label, 1],
+        label=f"Class {label}", alpha=0.7
+    )
+plt.title('PCA Visualization')
+plt.xlabel('Principal Component 1')
+plt.ylabel('Principal Component 2')
+plt.legend()
+plt.grid()
+plt.savefig(pca_plot_file)
+plt.close()
+print(f"PCA plot saved as '{pca_plot_file}'")

@@ -1,0 +1,20 @@
+Validation Accuracy: 91.36%
+Test Accuracy: 91.29%
+Class Distribution in Training Dataset:
+Class 0: 852 samples
+Class 1: 2181 samples
+Class 2: 1085 samples
+Class 3: 2026 samples
+Class 4: 849 samples
+Class 5: 993 samples
+Class 6: 2330 samples
+Class 7: 1643 samples
+Class Ratios:
+Class 0: 0.0712
+Class 1: 0.1824
+Class 2: 0.0907
+Class 3: 0.1694
+Class 4: 0.0710
+Class 5: 0.0830
+Class 6: 0.1948
+Class 7: 0.1374
