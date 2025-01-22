@@ -7,7 +7,7 @@ from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import GridSearchCV, learning_curve
 from sklearn.metrics import (confusion_matrix, ConfusionMatrixDisplay, roc_curve,
-                             precision_recall_curve, accuracy_score, roc_auc_score)
+                             precision_recall_curve, accuracy_score, roc_auc_score, f1_score)
 import matplotlib.pyplot as plt
 
 from imblearn.over_sampling import SMOTE
@@ -102,20 +102,38 @@ train_features = scaler.fit_transform(train_features)
 val_features = scaler.transform(val_features)
 test_features = scaler.transform(test_features)
 
+# Save directory for metrics and graphs
+save_dir = r"C:\Users\dariu\Documents\1. UCL\4th Year\Applied Machine Learning Systems I\AMLS_24-25_SN21026121\A"
+
 # ---------------------------
-# Train and Evaluate SVM
+# Evaluate SVM and Save Graphs
 # ---------------------------
-def evaluate_svm(svm_model, X_test, y_test):
+# Function to save evaluation metrics to a text file
+def save_metrics_to_text(file_path, accuracy, auc, f1):
+    with open(file_path, 'w') as f:
+        f.write("CNN-SVM Evaluation Metrics\n")
+        f.write("===========================\n")
+        f.write(f"Accuracy: {accuracy:.4f}\n")
+        f.write(f"Area Under Curve (AUC): {auc:.4f}\n")
+        f.write(f"F1 Score: {f1:.2f}\n")  # Added F1 score to output
+
+
+# Evaluate SVM and save graphs
+def evaluate_svm_and_save(svm_model, X_test, y_test, save_dir):
+    os.makedirs(save_dir, exist_ok=True)
     y_pred = svm_model.predict(X_test)
     y_prob = svm_model.predict_proba(X_test)[:, 1]
 
     # Confusion Matrix
-    ConfusionMatrixDisplay.from_predictions(y_test, y_pred, display_labels=["Benign", "Malignant"], cmap="Blues")
-    plt.title("Confusion Matrix")
-    plt.show()
+    cm_display = ConfusionMatrixDisplay.from_predictions(y_test, y_pred, display_labels=["Benign", "Malignant"], cmap="Blues")
+    cm_display.ax_.set_title("Confusion Matrix")
+    cm_path = os.path.join(save_dir, "CNN_SVM_Confusion_Matrix.png")
+    plt.savefig(cm_path)
+    plt.close()
 
     # ROC Curve
     fpr, tpr, _ = roc_curve(y_test, y_prob)
+    plt.figure()
     plt.plot(fpr, tpr, label=f"AUC = {roc_auc_score(y_test, y_prob):.2f}")
     plt.plot([0, 1], [0, 1], 'k--')
     plt.title("ROC Curve")
@@ -123,22 +141,36 @@ def evaluate_svm(svm_model, X_test, y_test):
     plt.ylabel("True Positive Rate")
     plt.legend()
     plt.grid()
-    plt.show()
+    roc_path = os.path.join(save_dir, "CNN_SVM_ROC_Curve.png")
+    plt.savefig(roc_path)
+    plt.close()
 
     # Precision-Recall Curve
     precision, recall, _ = precision_recall_curve(y_test, y_prob)
+    plt.figure()
     plt.plot(recall, precision)
     plt.title("Precision-Recall Curve")
     plt.xlabel("Recall")
     plt.ylabel("Precision")
     plt.grid()
-    plt.show()
+    pr_path = os.path.join(save_dir, "CNN_SVM_Precision_Recall_Curve.png")
+    plt.savefig(pr_path)
+    plt.close()
 
-    # Calculate and print AUC and ACC
+    # Calculate metrics
     accuracy = accuracy_score(y_test, y_pred)
     auc = roc_auc_score(y_test, y_prob)
-    print(f"Accuracy (ACC): {accuracy:.4f}")
-    print(f"Area Under the Curve (AUC): {auc:.4f}")
+    f1 = f1_score(y_test, y_pred)  # Added F1 score calculation
+
+    metrics_path = os.path.join(save_dir, "CNN_SVM_Evaluation_Metrics.txt")
+    save_metrics_to_text(metrics_path, accuracy, auc, f1)
+
+    return {
+        "Confusion Matrix": cm_path,
+        "ROC Curve": roc_path,
+        "Precision-Recall Curve": pr_path,
+        "Metrics File": metrics_path
+    }
 
 param_grid = {
     'svm__C': [0.1, 1, 10],
@@ -165,4 +197,5 @@ grid_search = GridSearchCV(
 grid_search.fit(train_features, y_train)
 
 best_svm = grid_search.best_estimator_
-evaluate_svm(best_svm, test_features, y_test)
+results = evaluate_svm_and_save(grid_search.best_estimator_, test_features, y_test, save_dir)
+results
