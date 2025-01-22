@@ -12,3 +12,4 @@ matplotlib
 tensorflow
 imblearn
 optuna
+seaborn

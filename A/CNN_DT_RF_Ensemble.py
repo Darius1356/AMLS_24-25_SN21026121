@@ -7,13 +7,14 @@ from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import GridSearchCV, learning_curve
 from sklearn.metrics import (
-    confusion_matrix, roc_curve, precision_recall_curve, accuracy_score, roc_auc_score
+    confusion_matrix, roc_curve, precision_recall_curve, accuracy_score, roc_auc_score, f1_score,classification_report, precision_score, recall_score
 )
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.decomposition import PCA
 from sklearn.tree import DecisionTreeClassifier, plot_tree
 from imblearn.over_sampling import SMOTE
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Suppress TensorFlow logs
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -130,40 +131,102 @@ dt_model, val_auc_dt, test_auc_dt, val_acc_dt, test_acc_dt, dt_grid = evaluate_m
     DecisionTreeClassifier(random_state=42), dt_params, train_features, y_train, val_features, y_val, test_features, y_test
 )
 
-# Random Forest
-rf_params = {
-    'n_estimators': [50, 100, 200],
-    'max_depth': [None, 5, 10, 20],
-    'min_samples_split': [2, 5, 10]
-}
-rf_model, val_auc_rf, test_auc_rf, val_acc_rf, test_acc_rf, rf_grid = evaluate_model(
-    RandomForestClassifier(random_state=42), rf_params, train_features, y_train, val_features, y_val, test_features, y_test
-)
+# ---------------------------
+# Random Forest Classifier and Evaluation
+# ---------------------------
+save_dir = r'C:\Users\dariu\Documents\1. UCL\4th Year\Applied Machine Learning Systems I\AMLS_24-25_SN21026121\A'
+os.makedirs(save_dir, exist_ok=True)
 
-print("Model Comparison:")
-print(f"Decision Tree  - Validation AUC: {val_auc_dt:.4f}, Test AUC: {test_auc_dt:.4f}, Validation ACC: {val_acc_dt:.4f}, Test ACC: {test_acc_dt:.4f}")
-print(f"Random Forest  - Validation AUC: {val_auc_rf:.4f}, Test AUC: {test_auc_rf:.4f}, Validation ACC: {val_acc_rf:.4f}, Test ACC: {test_acc_rf:.4f}")
+# Train Random Forest Classifier
+rf_model = RandomForestClassifier(random_state=42)
+rf_model.fit(x_train.reshape(x_train.shape[0], -1), y_train)
+
+# Predictions and probabilities
+x_test_flat = x_test.reshape(x_test.shape[0], -1)
+y_pred = rf_model.predict(x_test_flat)
+y_pred_prob = rf_model.predict_proba(x_test_flat)[:, 1]
+
+# Metrics
+accuracy = accuracy_score(y_test, y_pred)
+precision = precision_score(y_test, y_pred)
+recall = recall_score(y_test, y_pred)
+f1 = f1_score(y_test, y_pred)
+roc_auc = roc_auc_score(y_test, y_pred_prob)
+
+# Save metrics to a text file
+metrics_file_path = os.path.join(save_dir, "random_forest_metrics.txt")
+with open(metrics_file_path, "w") as f:
+    f.write(f"Accuracy: {accuracy:.4f}\n")
+    f.write(f"Precision: {precision:.4f}\n")
+    f.write(f"Recall: {recall:.4f}\n")
+    f.write(f"F1 Score: {f1:.4f}\n")
+    f.write(f"ROC AUC: {roc_auc:.4f}\n")
+print(f"Metrics saved to {metrics_file_path}")
+
+# Plot and save ROC curve
+fpr, tpr, _ = roc_curve(y_test, y_pred_prob)
+plt.figure(figsize=(8, 6))
+plt.plot(fpr, tpr, label=f"ROC Curve (AUC = {roc_auc:.4f})")
+plt.plot([0, 1], [0, 1], 'k--', label="Random Guess")
+plt.xlabel("False Positive Rate")
+plt.ylabel("True Positive Rate")
+plt.title("ROC Curve for Random Forest Classifier")
+plt.legend()
+roc_curve_path = os.path.join(save_dir, "random_forest_roc_curve.png")
+plt.savefig(roc_curve_path)
+plt.close()
+print(f"ROC curve saved to {roc_curve_path}")
+# ---------------------------
+# Accuracy and F1 Score Evaluation
+# ---------------------------
+dt_predictions = dt_model.predict(test_features)
+dt_accuracy = accuracy_score(y_test, dt_predictions)
+dt_f1 = f1_score(y_test, dt_predictions, average='binary')
+
+# Save metrics to a text file
+metrics_file = r'C:\Users\dariu\Documents\1. UCL\4th Year\Applied Machine Learning Systems I\AMLS_24-25_SN21026121\A\decision_tree_metrics.txt'
+with open(metrics_file, 'w') as file:
+    file.write(f"Decision Tree Accuracy: {dt_accuracy:.4f}\n")
+    file.write(f"Decision Tree F1 Score: {dt_f1:.4f}\n")
+    file.write("\nClassification Report:\n")
+    file.write(classification_report(y_test, dt_predictions))
+
+print(f"Metrics saved to {metrics_file}")
 
 # ---------------------------
-# Visualisations
+# Confusion Matrix
 # ---------------------------
-def plot_learning_curve(estimator, X, y, title):
-    train_sizes, train_scores, val_scores = learning_curve(
-        estimator, X, y, cv=3, n_jobs=-1, train_sizes=np.linspace(0.1, 1.0, 5), scoring='accuracy'
+conf_matrix = confusion_matrix(y_test, dt_predictions)
+plt.figure(figsize=(8, 6))
+sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=['Benign', 'Malignant'], yticklabels=['Benign', 'Malignant'])
+plt.title('Confusion Matrix')
+plt.xlabel('Predicted')
+plt.ylabel('Actual')
+conf_matrix_file = r'C:\Users\dariu\Documents\1. UCL\4th Year\Applied Machine Learning Systems I\AMLS_24-25_SN21026121\A\confusion_matrix.png'
+plt.savefig(conf_matrix_file)
+plt.close()
+print(f"Confusion matrix saved as '{conf_matrix_file}'")
+
+# ---------------------------
+# PCA Plot
+# ---------------------------
+pca = PCA(n_components=2)
+pca_features = pca.fit_transform(test_features)
+
+plt.figure(figsize=(10, 8))
+for label in np.unique(y_test):
+    plt.scatter(
+        pca_features[y_test == label, 0],
+        pca_features[y_test == label, 1],
+        label=f"Class {label}", alpha=0.7
     )
+plt.title('PCA Visualization')
+plt.xlabel('Principal Component 1')
+plt.ylabel('Principal Component 2')
+plt.legend()
+plt.grid()
+pca_plot_file = r'C:\Users\dariu\Documents\1. UCL\4th Year\Applied Machine Learning Systems I\AMLS_24-25_SN21026121\A\pca_plot.png'
+plt.savefig(pca_plot_file)
+plt.close()
+print(f"PCA plot saved as '{pca_plot_file}'")
 
-    plt.plot(train_sizes, train_scores.mean(axis=1), label='Train')
-    plt.plot(train_sizes, val_scores.mean(axis=1), label='Validation')
-    plt.fill_between(train_sizes, train_scores.mean(axis=1) - train_scores.std(axis=1),
-                     train_scores.mean(axis=1) + train_scores.std(axis=1), alpha=0.2)
-    plt.fill_between(train_sizes, val_scores.mean(axis=1) - val_scores.std(axis=1),
-                     val_scores.mean(axis=1) + val_scores.std(axis=1), alpha=0.2)
-    plt.title(title)
-    plt.xlabel("Training Size")
-    plt.ylabel("Accuracy")
-    plt.legend()
-    plt.grid()
-    plt.show()
-
-plot_learning_curve(dt_model, train_features, y_train, "Decision Tree Learning Curve")
-plot_learning_curve(rf_model, train_features, y_train, "Random Forest Learning Curve")
