@@ -1,5 +1,5 @@
 CNN-SVM Evaluation Metrics
 ===========================
-Accuracy: 0.8269
-Area Under Curve (AUC): 0.8494
+Accuracy: 0.8205
+Area Under Curve (AUC): 0.8135
 F1 Score: 0.88

@@ -162,17 +162,6 @@ test_accuracy = accuracy_score(test_labels, test_predictions)
 print(f"Validation Accuracy (Decision Tree): {val_accuracy:.4f}")
 print(f"Test Accuracy (Decision Tree): {test_accuracy:.4f}")
 
-# Optional AUC for binary tasks
-if len(np.unique(train_labels)) == 2:
-    val_probs = decision_tree.predict_proba(val_features)[:, 1]
-    test_probs = decision_tree.predict_proba(test_features)[:, 1]
-
-    val_auc = roc_auc_score(val_labels, val_probs)
-    test_auc = roc_auc_score(test_labels, test_probs)
-
-    print(f"Validation AUC (Decision Tree): {val_auc:.4f}")
-    print(f"Test AUC (Decision Tree): {test_auc:.4f}")
-
 # ---------------------------
 # Save Metrics, Confusion Matrix, and PCA Plot
 # ---------------------------
@@ -195,7 +184,7 @@ print(f"Metrics saved to {metrics_file}")
 
 # Confusion Matrix
 conf_matrix = confusion_matrix(test_labels, test_predictions)
-conf_matrix_file = os.path.join(output_dir, 'confusion_matrix.png')
+conf_matrix_file = os.path.join(output_dir, 'decision_tree_confusion_matrix.png')
 plt.figure(figsize=(8, 6))
 sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=np.unique(test_labels), yticklabels=np.unique(test_labels))
 plt.title('Confusion Matrix')
@@ -209,7 +198,7 @@ print(f"Confusion matrix saved as '{conf_matrix_file}'")
 pca = PCA(n_components=2)
 pca_features = pca.fit_transform(test_features)
 
-pca_plot_file = os.path.join(output_dir, 'pca_plot.png')
+pca_plot_file = os.path.join(output_dir, 'decision_tree_pca_plot.png')
 plt.figure(figsize=(10, 8))
 for label in np.unique(test_labels):
     plt.scatter(

@@ -172,7 +172,7 @@ output_dir = r"C:\\Users\\dariu\\Documents\\1. UCL\\4th Year\\Applied Machine Le
 os.makedirs(output_dir, exist_ok=True)
 
 # Save metrics to a text file
-metrics_path = os.path.join(output_dir, "metrics.txt")
+metrics_path = os.path.join(output_dir, "CNN_metrics.txt")
 with open(metrics_path, "w") as f:
     f.write(f"Validation Accuracy: {val_acc:.2f}%\n")
     f.write(f"Test Accuracy: {test_acc:.2f}%\n")
@@ -186,7 +186,7 @@ with open(metrics_path, "w") as f:
 print(f"Metrics saved to {metrics_path}")
 
 # Save the loss curve graph
-loss_curve_path = os.path.join(output_dir, "loss_curve.png")
+loss_curve_path = os.path.join(output_dir, "CNN_loss_curve.png")
 plt.figure(figsize=(8, 6))
 plt.plot(epochs, training_loss, label="Training Loss", marker="o")
 plt.plot(epochs, validation_loss, label="Validation Loss", marker="s")

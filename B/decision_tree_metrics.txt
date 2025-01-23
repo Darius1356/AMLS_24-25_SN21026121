@@ -1,20 +1,20 @@
-Decision Tree Validation Accuracy: 0.8464
-Decision Tree Test Accuracy: 0.8448
-Decision Tree Validation F1 Score: 0.8474
-Decision Tree Test F1 Score: 0.8444
+Decision Tree Validation Accuracy: 0.8417
+Decision Tree Test Accuracy: 0.8465
+Decision Tree Validation F1 Score: 0.8420
+Decision Tree Test F1 Score: 0.8460
 
 Classification Report (Test):
               precision    recall  f1-score   support
 
-           0       0.67      0.65      0.66       244
-           1       0.95      0.96      0.96       624
-           2       0.88      0.90      0.89       311
-           3       0.67      0.68      0.67       579
-           4       0.80      0.81      0.80       243
-           5       0.67      0.64      0.65       284
-           6       0.94      0.92      0.93       666
-           7       0.99      0.99      0.99       470
+           0       0.68      0.70      0.69       244
+           1       0.95      0.94      0.94       624
+           2       0.86      0.90      0.88       311
+           3       0.69      0.68      0.69       579
+           4       0.78      0.79      0.78       243
+           5       0.69      0.64      0.67       284
+           6       0.93      0.94      0.94       666
+           7       0.99      0.98      0.99       470
 
-    accuracy                           0.84      3421
+    accuracy                           0.85      3421
    macro avg       0.82      0.82      0.82      3421
-weighted avg       0.84      0.84      0.84      3421
+weighted avg       0.85      0.85      0.85      3421
