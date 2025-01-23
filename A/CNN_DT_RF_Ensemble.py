@@ -202,7 +202,7 @@ sns.heatmap(conf_matrix, annot=True, fmt='d', cmap='Blues', xticklabels=['Benign
 plt.title('Confusion Matrix')
 plt.xlabel('Predicted')
 plt.ylabel('Actual')
-conf_matrix_file = r'C:\Users\dariu\Documents\1. UCL\4th Year\Applied Machine Learning Systems I\AMLS_24-25_SN21026121\A\confusion_matrix.png'
+conf_matrix_file = r'C:\Users\dariu\Documents\1. UCL\4th Year\Applied Machine Learning Systems I\AMLS_24-25_SN21026121\A\decision_tree_confusion_matrix.png'
 plt.savefig(conf_matrix_file)
 plt.close()
 print(f"Confusion matrix saved as '{conf_matrix_file}'")
@@ -225,7 +225,7 @@ plt.xlabel('Principal Component 1')
 plt.ylabel('Principal Component 2')
 plt.legend()
 plt.grid()
-pca_plot_file = r'C:\Users\dariu\Documents\1. UCL\4th Year\Applied Machine Learning Systems I\AMLS_24-25_SN21026121\A\pca_plot.png'
+pca_plot_file = r'C:\Users\dariu\Documents\1. UCL\4th Year\Applied Machine Learning Systems I\AMLS_24-25_SN21026121\A\decision_tree_pca_plot.png'
 plt.savefig(pca_plot_file)
 plt.close()
 print(f"PCA plot saved as '{pca_plot_file}'")
