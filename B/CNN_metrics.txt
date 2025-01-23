@@ -1,5 +1,5 @@
-Validation Accuracy: 91.71%
-Test Accuracy: 91.82%
+Validation Accuracy: 91.94%
+Test Accuracy: 91.67%
 Class Distribution in Training Dataset:
 Class 0: 852 samples
 Class 1: 2181 samples

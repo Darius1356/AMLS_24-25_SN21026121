@@ -1,12 +1,12 @@
-Decision Tree Accuracy: 0.8397
-Decision Tree F1 Score: 0.8945
+Decision Tree Accuracy: 0.7821
+Decision Tree F1 Score: 0.8559
 
 Classification Report:
               precision    recall  f1-score   support
 
-           0       0.76      0.60      0.67        42
-           1       0.86      0.93      0.89       114
+           0       0.62      0.50      0.55        42
+           1       0.83      0.89      0.86       114
 
-    accuracy                           0.84       156
-   macro avg       0.81      0.76      0.78       156
-weighted avg       0.83      0.84      0.83       156
+    accuracy                           0.78       156
+   macro avg       0.72      0.69      0.70       156
+weighted avg       0.77      0.78      0.77       156
