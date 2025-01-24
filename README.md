@@ -1,7 +1,7 @@
 
 # AMLS_24-25_SN21026121
 
-# Project Title: Advanced Machine Learning for Medical Imaging
+# Advanced Machine Learning for Medical Imaging
 
 ## Project Overview
 
@@ -67,7 +67,7 @@ pip install -r requirements.txt
 
 ## Running the Project
 
-Once the dependencies are installed, you can run the main script using the following command:
+Once the dependencies are installed, you can run the main script using the following command (you may want to run each module individually by commenting out the others to minimise waiting time):
 
 ```bash
 venv\Scripts\python main.py
