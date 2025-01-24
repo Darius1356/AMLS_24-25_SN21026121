@@ -269,7 +269,7 @@ def plot_and_save_learning_curve(estimator, title, X, y, save_path, cv=None, n_j
 # File path to save the learning curve
 learning_curve_path = r'C:\Users\dariu\Documents\1. UCL\4th Year\Applied Machine Learning Systems I\AMLS_24-25_SN21026121\A\decision_tree_learning_curve.png'
 
-# Use DecisionTreeClassifier as an example
+# Use DecisionTreeClassifier
 plot_and_save_learning_curve(
     dt_model,
     "Learning Curve: Decision Tree Classifier",
